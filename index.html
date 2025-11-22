@@ -8,33 +8,37 @@ body { font-family: sans-serif; background: #0d0d0d; color: white; text-align: c
 h1 { margin: 20px 0; }
 form, .uploader { margin: 20px auto; width: 90%; max-width: 600px; }
 input, button { padding: 10px; margin: 5px; border: none; border-radius: 6px; }
-input[type="file"] { background: #222; color: #ddd; }
+input[type="file"], input[type="text"], input[type="email"], input[type="password"] { background: #222; color: #ddd; width: 90%; }
 button { background: #29a; color: white; cursor: pointer; }
 </style>
 </head>
 <body>
 <h1>Mini Webhost</h1>
 
+<!-- Login / Sign-up form -->
 <div id="auth">
   <form id="loginForm">
     <input id="email" type="email" placeholder="Email" required><br>
     <input id="password" type="password" placeholder="Password" required><br>
+    <input id="username" type="text" placeholder="Choose a username" required><br>
     <button type="submit">Log In / Sign Up</button>
   </form>
 </div>
 
+<!-- File uploader -->
 <div class="uploader" style="display:none">
   <h2>Upload your site files</h2>
   <input type="file" id="fileInput" multiple><br>
-  <button id="uploadBtn">Upload</button><br>
+  <button id="uploadBtn">Upload Files</button><br>
   <p>Preview link: <span id="previewLink"></span></p>
 </div>
 
 <script type="module">
 import { createClient } from "https://esm.sh/@supabase/supabase-js";
 
+// 🔑 Supabase configuration
 const SUPABASE_URL = "https://zsuirwfcmrsmmxinikmw.supabase.co";
-const SUPABASE_KEY = "YOUR_ANON_KEY";
+const SUPABASE_KEY = "YOUR_ANON_KEY"; // replace with your anon key
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const loginForm = document.getElementById("loginForm");
@@ -44,13 +48,30 @@ const uploadBtn = document.getElementById("uploadBtn");
 const previewLink = document.getElementById("previewLink");
 
 let user = null;
+let username = "";
 
+// Log in or sign up
 loginForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
+  username = document.getElementById("username").value.trim();
 
+  if (!username) return alert("Please choose a username");
+
+  // Check if username already exists in table
+  const { data: existing } = await supabase
+    .from("sites")
+    .select("username")
+    .eq("username", username)
+    .limit(1);
+
+  if (existing.length > 0) return alert("Username already taken!");
+
+  // Try signing in
   let { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+  // If login fails, sign up
   if (error && error.message.includes("Invalid login credentials")) {
     ({ data, error } = await supabase.auth.signUp({ email, password }));
   }
@@ -61,17 +82,20 @@ loginForm.addEventListener("submit", async (e) => {
   uploader.style.display = "block";
 });
 
+// Upload files
 uploadBtn.addEventListener("click", async () => {
   if (!fileInput.files.length) return alert("Select at least one file");
-  const username = user.email.split("@")[0];
 
   for (const file of fileInput.files) {
     const path = `${username}/${file.name}`;
+
+    // Upload to Supabase Storage
     const { error: uploadError } = await supabase.storage
       .from("sites")
       .upload(path, file, { upsert: true });
     if (uploadError) console.error("Upload failed:", uploadError);
 
+    // Insert metadata into sites table
     const { error: insertError } = await supabase.from("sites").insert({
       user_email: user.email,
       username: username,
