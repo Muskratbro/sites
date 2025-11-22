@@ -4,14 +4,7 @@
 <meta charset="UTF-8">
 <title>Mini Webhost</title>
 <style>
-body {
-  font-family: sans-serif;
-  background: #0d0d0d;
-  color: white;
-  text-align: center;
-  margin: 0;
-  padding: 0;
-}
+body { font-family: sans-serif; background: #0d0d0d; color: white; text-align: center; margin: 0; padding: 0; }
 h1 { margin: 20px 0; }
 form, .uploader { margin: 20px auto; width: 90%; max-width: 600px; }
 input, button { padding: 10px; margin: 5px; border: none; border-radius: 6px; }
@@ -42,9 +35,9 @@ button { background: #29a; color: white; cursor: pointer; }
 <script type="module">
 import { createClient } from "https://esm.sh/@supabase/supabase-js";
 
-// Supabase setup
-const SUPABASE_URL = "https://zsuirwfcmrsmmxinikmw.supabase.co";
-const SUPABASE_KEY = "YOUR_ANON_KEY";
+// Supabase config
+const SUPABASE_URL = "https://lpzlnnpeoakwqpnqtthl.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxwemxubnBlb2Frd3FwbnF0dGhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM3NTI4NTgsImV4cCI6MjA3OTMyODg1OH0.S4LDwac_mH7VqYxk4h9VkgGoLOtYk3s3v16rXzdM_Ek";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const loginForm = document.getElementById("loginForm");
@@ -79,8 +72,21 @@ uploadBtn.addEventListener("click", async () => {
 
   for (const file of fileInput.files) {
     const path = `${username}/${file.name}`;
-    const { error } = await supabase.storage.from("sites").upload(path, file, { upsert: true });
-    if (error) console.error("Upload error:", error.message);
+    
+    // Upload file to Supabase Storage
+    const { error: uploadError } = await supabase.storage
+      .from("sites")
+      .upload(path, file, { upsert: true });
+    if (uploadError) console.error("Upload failed:", uploadError);
+
+    // Insert metadata into sites table
+    const { error: insertError } = await supabase.from("sites").insert({
+      user_email: user.email,
+      username: username,
+      file_name: file.name,
+      storage_path: path
+    });
+    if (insertError) console.error("Metadata insert failed:", insertError);
   }
 
   const viewUrl = `/s/${username}`;
