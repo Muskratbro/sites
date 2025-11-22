@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Mini Webhost</title>
+<style>
+body {
+  font-family: sans-serif;
+  background: #0d0d0d;
+  color: white;
+  text-align: center;
+  margin: 0;
+  padding: 0;
+}
+h1 { margin: 20px 0; }
+form, .uploader { margin: 20px auto; width: 90%; max-width: 600px; }
+input, button { padding: 10px; margin: 5px; border: none; border-radius: 6px; }
+input[type="file"] { background: #222; color: #ddd; }
+button { background: #29a; color: white; cursor: pointer; }
+</style>
+</head>
+<body>
+<h1>Mini Webhost</h1>
+
+<!-- Login / Sign-up form -->
+<div id="auth">
+  <form id="loginForm">
+    <input id="email" type="email" placeholder="Email" required><br>
+    <input id="password" type="password" placeholder="Password" required><br>
+    <button type="submit">Log In / Sign Up</button>
+  </form>
+</div>
+
+<!-- File uploader -->
+<div class="uploader" style="display:none">
+  <h2>Upload your site files</h2>
+  <input type="file" id="fileInput" multiple><br>
+  <button id="uploadBtn">Upload</button><br>
+  <p>Preview link: <span id="previewLink"></span></p>
+</div>
+
+<script type="module">
+import { createClient } from "https://esm.sh/@supabase/supabase-js";
+
+// Supabase setup
+const SUPABASE_URL = "https://zsuirwfcmrsmmxinikmw.supabase.co";
+const SUPABASE_KEY = "YOUR_ANON_KEY";
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const loginForm = document.getElementById("loginForm");
+const uploader = document.querySelector(".uploader");
+const fileInput = document.getElementById("fileInput");
+const uploadBtn = document.getElementById("uploadBtn");
+const previewLink = document.getElementById("previewLink");
+
+let user = null;
+
+// Login / sign up
+loginForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+
+  let { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error && error.message.includes("Invalid login credentials")) {
+    ({ data, error } = await supabase.auth.signUp({ email, password }));
+  }
+  if (error) return alert(error.message);
+
+  user = data.user;
+  loginForm.style.display = "none";
+  uploader.style.display = "block";
+});
+
+// Upload files
+uploadBtn.addEventListener("click", async () => {
+  if (!fileInput.files.length) return alert("Select at least one file");
+  const username = user.email.split("@")[0];
+
+  for (const file of fileInput.files) {
+    const path = `${username}/${file.name}`;
+    const { error } = await supabase.storage.from("sites").upload(path, file, { upsert: true });
+    if (error) console.error("Upload error:", error.message);
+  }
+
+  const viewUrl = `/s/${username}`;
+  previewLink.innerHTML = `<a href="${viewUrl}" target="_blank">${viewUrl}</a>`;
+});
+</script>
+</body>
+</html>
